@@ -1,0 +1,95 @@
+nome: Customer Segmentation
+versao: 1.0
+descricao: |
+  Perguntas de negócio que este pill procura responder?
+  - Em quantas categorias os clientes podem ser segmentados?
+  - Quais categorias sao mais interessantes para o meu empreendimento?
+
+  Como a pill funciona?
+ 
+
+  Nos campos abaixo, adicione os dados de entrada para treinar o modelo.
+  Campos marcados com * sao obrigatórios.
+links_referencias:
+  Codex Aplicações de DS na DP6 - Forecasting: 'https://codex.dp6.io/books/ci%C3%AAncia-de-dados-bd4/page/forecasting'
+  
+parametros:
+  input:
+    df:
+      tipo: DataFrame
+      descricao: Tabela com dados de cada característica por ID do cliente
+      obrigatorio: True
+    coluna_id:
+      tipo: column
+      descricao: Nome da coluna com os ID's dos clientes
+      obrigatorio: True
+    colunas_caracteristicas:
+      tipo: columns
+      descricao: Nomes das colunas que se referem a caracteristicas do cliente
+      obrigatorio: True
+    control_number_clusters:
+      tipo: bool
+      descricao: Add custom number
+    number_clusters:
+      tipo: int
+      descricao: Number of clusters
+      controle: control_number_clusters
+    control_importance_features:
+      tipo: bool
+      descricao: Add importance features
+      analysis: True
+    importance_features:
+      tipo: columns
+      descricao: Nomes das colunas para analise de importancia
+      controle: control_importance_features
+      analysis: True
+    control_custom_features:
+      tipo: bool
+      descricao: Add custom names to clusters
+      analysis: True
+  
+    
+  outputs:
+    clustering_raw:
+      tipo: DataFrame
+      descricao: Segmentacao dos clientes pelos clusters
+    clusters_statistics_raw:
+      tipo: DataFrame
+      descricao: Dados estatisticos dos clusters
+    plot_optimal_clusters_k:
+      tipo: fig
+      descricao: Otimizacao do numero de Clusters K - Grafico Elbow Method
+    plot_clusters_features_heatmap_raw:
+      tipo: fig
+      descricao: Relacao entre Clusters e Features - Grafico Heatmap
+    plot_clusters_features_scatter_raw:
+      tipo: plotly
+      descricao: Relacao entre Clusters e Features - Grafico Matrix Scatter Plot
+    dropped_ids_raw:
+      tipo: DataFrame
+      descricao: ID's retirados da base 
+
+  outputs_analysis:
+    model_hierarchy_raw:
+      tipo: DataFrame
+      descricao: Segmentacao dos clientes pelos clusters
+    model_hierarchy_statistics_raw:
+      tipo: DataFrame
+      descricao: Dados estatisticos dos clusters
+    plot_model_hierarchy_features_heatmap:
+      tipo: fig
+      descricao: Relacao entre Clusters e Features - Grafico Heatmap
+    plot_model_hierarchy_features_scatter:
+      tipo: plotly
+      descricao: Relacao entre Clusters e Features - Grafico Matrix Scatter Plot
+    
+
+tests:
+  dataframe:
+    df: "RFV.csv"
+  inputs:
+    coluna_id: id
+    colunas_caracteristicas: valor,frequencia,resc
+    
+    
+  

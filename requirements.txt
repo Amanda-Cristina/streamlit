@@ -1,0 +1,11 @@
+matplotlib==3.5.2
+pandas>=1.4.3
+seaborn>=0.11.2
+numpy
+plotly
+chart-studio
+scikit-learn
+nbformat
+yellowbrick
+kmeans
+kneed
