@@ -14,42 +14,76 @@ links_referencias:
   Codex Aplicações de DS na DP6 - Forecasting: 'https://codex.dp6.io/books/ci%C3%AAncia-de-dados-bd4/page/forecasting'
   
 parametros:
-  input:
+  dataset: 
     df:
-      tipo: DataFrame
-      descricao: Tabela com dados de cada característica por ID do cliente
+      titulo: Tabela Passado
+      descricao: Tabela com dados do passado para treinar o modelo
       obrigatorio: True
-    coluna_id:
-      tipo: column
-      descricao: Nome da coluna com os ID's dos clientes
-      obrigatorio: True
-    colunas_caracteristicas:
-      tipo: columns
-      descricao: Nomes das colunas que se referem a caracteristicas do cliente
-      obrigatorio: True
-    control_number_clusters:
-      tipo: bool
-      descricao: Add custom number
-    number_clusters:
-      tipo: int
-      descricao: Number of clusters
-      controle: control_number_clusters
-    control_importance_features:
-      tipo: bool
-      descricao: Add importance features
-      analysis: True
-    importance_features:
-      tipo: columns
-      descricao: Nomes das colunas para analise de importancia
-      controle: control_importance_features
-      analysis: True
-    control_custom_features:
-      tipo: bool
-      descricao: Add custom names to clusters
-      analysis: True
-  
+    regressores_futuros:
+      titulo: Tabela Dados Adicionais
+      descricao: Tabela com dados os dados adicionais (caso tenha adicionado) referentes ao período que deseja prever  
+  input:
+    config:
+      blocos:
+        bloco_1: 1. Data
+        bloco_2: 2. Modelling
+        bloco_3: 3. Posprocessing
+      topicos: 
+        bloco_1:
+          topico_1: Dataset
+        bloco_2:
+          topico_1: Clusters
+        bloco_3:
+          topico_1: Importance Features
+          topico_2: Custom Names
+    widgets:
+      bloco_1:
+        topico_1:
+          coluna_id:
+            tipo: column
+            titulo: Column ID
+            descricao: Nome da coluna com os ID's dos clientes
+            obrigatorio: True
+          colunas_caracteristicas:
+            tipo: columns
+            titulo: Column Caracteristics
+            descricao: Nomes das colunas que se referem a caracteristicas do cliente
+            opcao: df
+            obrigatorio: True
+      bloco_2:
+        topico_1:
+          control_number_clusters:
+            tipo: bool
+            titulo: Add custom number
+            descricao: Add custom number
+          number_clusters:
+            tipo: int
+            titulo: Number of clusters
+            descricao: Number of clusters
+            controle: control_number_clusters
+      bloco_3:
+        topico_1:
+          control_importance_features:
+            tipo: bool
+            titulo: Add importance features
+            descricao: Add importance features
+            posprocesso: True
+          importance_features:
+            tipo: columns
+            titulo: Colunas
+            descricao: Nomes das colunas para analise de importancia
+            opcao: df
+            controle: control_importance_features
+            posprocesso: True
+        topico_2:
+          control_custom_features:
+            tipo: bool
+            titulo: Add custom names to clusters
+            descricao: Add custom names to clusters
+            posprocesso: True
     
-  outputs:
+    
+  outputs_model:
     clustering_raw:
       tipo: DataFrame
       descricao: Segmentacao dos clientes pelos clusters
@@ -69,7 +103,7 @@ parametros:
       tipo: DataFrame
       descricao: ID's retirados da base 
 
-  outputs_analysis:
+  outputs_posprocessing:
     model_hierarchy_raw:
       tipo: DataFrame
       descricao: Segmentacao dos clientes pelos clusters

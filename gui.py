@@ -1,12 +1,11 @@
-from configs import load_configs
 import streamlit as st
 import pandas as pd
 import pickle
 import base64
-from main import analysis as clusters_analysis
-from main import classes as classes
 
-import numpy as np
+from configs import load_configs
+
+# https://discuss.streamlit.io/t/streamlit-pycaret-an-end-to-end-machine-learning-web-application/9623
 
 
 class BASEAPP:
@@ -24,10 +23,13 @@ class BASEAPP:
             Caminho do arquivo YAML de configurações
         """
         self.configs = load_configs(path)
+        self.df_dataset = {}
+        self.inputs_model = {}
+        self.config_posprocessing = {}
+        self.inputs_posprocessing = {}
 
-       
     def header(self, use_image=True):
-
+        
         st.header(self.configs.nome)
         st.text(f"Versão: {self.configs.versao}")
         with st.expander("See explanation"):
@@ -36,7 +38,10 @@ class BASEAPP:
             if use_image:
                 st.image("imgs/rascience2.png")
 
-        
+        # revisar
+        # Valida se tests existe para chamar função de configs
+        # if "tests" in self.configs.__dict__:
+        #     self.__load_test_configs()
 
     def footer(self):
         """
@@ -47,12 +52,21 @@ class BASEAPP:
         with st.expander("See all"):
             for nome, link in self.configs.links_referencias.items():
                 st.markdown(f"- [{nome}]({link})")
-            
-            
-    @st.cache(max_entries = 1)  
-    def upload_csv(self):
+
+    def __load_test_configs(self):
         """
-        Método interno para criar widget que recebe um DataFrame
+        Carrega configurações presentes em self.configs.tests
+        e atualiza os atributos de self.inputs.
+        """
+        self.use_test_data = st.checkbox("Usar DF de testes")
+        if self.use_test_data:
+            self.inputs = self.configs.get_tests()
+            st.json(self.inputs)
+
+    @st.cache(max_entries = 5)  
+    def __upload_dataset(self, dataset):
+        """
+        Método interno para salvar dataset em DataFrame
 
         Parameters
         ----------
@@ -61,41 +75,35 @@ class BASEAPP:
         key:str
             Identificador unico do widget
         """
-        #with st.sidebar: 
-            #uploaded_file = st.file_uploader(title, key=key)
-        if self.uploaded_file is not None:
-            print('upload')
-            # To read file as bytes:
-            bytes_data = self.uploaded_file.getvalue()
-        #st.text(f"Carregando DataFrame...")
-            st.session_state['base'] = pd.read_csv(self.uploaded_file)
 
+        return pd.read_csv(dataset)
+
+    def container_dataset(self):          
+        with st.sidebar.expander("Upload Datasets", expanded=False):
+            datasets = self.configs.parametros["dataset"]
+            for nome, opcoes in datasets.items():
+                titulo = opcoes["titulo"] +' *' if "obrigatorio" in opcoes else opcoes["titulo"] 
             
-            #st.text(f"Shape: {df.shape}")
-            #st.dataframe(df)
-            #return df
-    
-    
+                dataset = st.file_uploader(titulo, key=nome, help = opcoes["descricao"])
+                
+                if (dataset is not None):
+                    self.df_dataset[nome] = self.__upload_dataset(dataset)
+                    
+        if (len(self.df_dataset) == len(datasets)):
+            st.session_state['df_dataset'] = self.df_dataset 
+            
     def show_dataset(self):
-        with st.sidebar:
-            self.uploaded_file = st.file_uploader("Escolha um arquivo CSV", key="Dowload")
-        self.upload_csv()
-        
-        
-        if 'base' in st.session_state:          
-            st.markdown("#### Data Preview") 
-            with st.expander("See explanation"):             
-                st.text(f"Shape: {st.session_state.base.shape}")
-                st.dataframe(st.session_state.base.head())
-            return st.session_state.base
-    
-    def change_disable(self,control,change):
-        
-        if st.session_state[control]:
-            if change in st.session_state:
-                st.session_state[change] = 3
-        
-    def __convert_input(self, name, label, value, preset, mandatory,control):
+        datasets = self.configs.parametros["dataset"]
+  
+        for nome,df in st.session_state['df_dataset'].items(): 
+            label = datasets[nome]["titulo"]
+            st.markdown(f"##### {label}")          
+            st.text(f"Shape: {df.shape}")
+            st.dataframe(df.head())
+
+
+
+    def __convert_input(self, nome, titulo, descricao, tipo, valor, opcao, obrigatorio, controle):
         """
         Método interno de conversão das informações de
         configurações para a interface do streamlit
@@ -104,134 +112,79 @@ class BASEAPP:
         ----------
         """
        
-        if 'base' in st.session_state: 
+        titulo = titulo +' *' if obrigatorio else titulo 
+        
+        if tipo == "date":
+            return st.text_input(titulo, value="" if valor is None else valor, key = nome, help = descricao)
+        
+        if tipo == "int": 
+            if controle is None:                   
+                return st.number_input(titulo, value= 1 if valor is None else valor, key = nome, help = descricao)
+            else:
+                return st.number_input(titulo, value= 1 if valor is None else valor, key = nome, help = descricao, disabled = False if st.session_state[controle] else True)
             
-            with st.sidebar:
-                label = label+' *' if mandatory else label 
-                if value == "date":
-                    return st.text_input(label, value="" if preset is None else preset, key = name)
-                if value == "int": 
-                    if control is None:                   
-                        return st.number_input(label, value= 1 if preset is None else preset, key = name)
-                    else:
-                        return st.number_input(label, value= 1 if preset is None else preset, key = name, disabled = False if st.session_state[control] else True)
-                if value == "float":
-                    return st.number_input(label, value=1.0 if preset is None else preset, key = name)
-                if value == "str":
-                    return st.text_input(label, value="" if preset is None else preset, key = name)
-                if value == "column":
-                    return st.selectbox(label,options=[] if 'base' not in st.session_state else st.session_state.base.columns, key = name)
-                if value == "columns":
-                    if control is None:
-                        return st.multiselect(label,options=[] if 'base' not in st.session_state else st.session_state.base.columns, key = name)
-                    else:
-                        return st.multiselect(label,options=[] if 'base' not in st.session_state else st.session_state.base.columns, key = name, disabled = False if st.session_state[control] else True)
-                if value == "list":
-                    return st.text_input(label, value="" if preset is None else preset, key = name)
-                if value == "bool":
-                    return st.checkbox(label, value=False if preset is None else preset, key = name)
-               
-                
+        if tipo == "float":
+            return st.number_input(titulo, value=1.0 if valor is None else valor, key = nome, help = descricao)
+        
+        if tipo == "str":
+            return st.text_input(titulo, value="" if valor is None else valor, key = nome, help = descricao)
+        
+        if tipo == "column":
+            return st.selectbox(titulo,options=[] if 'df_dataset' not in st.session_state else st.session_state.df_dataset["df"].columns, key = nome, help = descricao)
+        
+        if tipo == "columns":
+            if controle is None:
+                return st.multiselect(titulo,options=[] if 'df_dataset' not in st.session_state else st.session_state.df_dataset[opcao].columns, key = nome, help = descricao)
+            else:
+                return st.multiselect(titulo,options=[] if 'df_dataset' not in st.session_state else st.session_state.df_dataset[opcao].columns, key = nome, help = descricao, disabled = False if st.session_state[controle] else True)
+            
+        if tipo == "list":
+            return st.text_input(titulo, value="" if valor is None else valor, key = nome, help = descricao)
+        
+        if tipo == "bool":
+            return st.checkbox(titulo, value=False if valor is None else valor, key = nome, help = descricao)
 
-    def container_inputs(self):
+    def container_inputs(self, model):
         """
         Bloco que converte inputs do YAML de
         configs > parametros > input em widgets
         para o usuário utilizar.
         """
 
-        self.inputs = {}
-        self.widgets_analysis = {}
+        titulos_blocos = self.configs.parametros["input"]["config"]["blocos"]
         
-        for nome, opcoes in self.configs.parametros["input"].items():
-            parametros = [nome,
-                        opcoes["descricao"], 
-                        opcoes["tipo"], 
-                        opcoes["valor"] if "valor" in opcoes else None,
-                        opcoes["obrigatorio"] if "obrigatorio" in opcoes else False,
-                        opcoes["controle"] if "controle" in opcoes else None]
-            if(nome == 'df'):
-                self.inputs[nome] = self.show_dataset()
-            elif ('analysis' in opcoes):
-                self.widgets_analysis[nome] = self.__convert_input(*parametros)
-            else: 
-                self.inputs[nome] = self.__convert_input(*parametros)
-      
-                
-    def container_inputs_analysis(self):
-        self.inputs_analysis = {}
-        columns_order = []
-        columns_behavior = []
-        if (self.widgets_analysis['control_importance_features']):
-            st.markdown(f"#### Model Hierarchy \n")
-            with st.expander("See all"):
-                with st.form("my_form"):
-                    col1, col2 = st.columns(2)
-                    feature = 1
-                    for input in self.widgets_analysis['importance_features']:
-                        label = 'Feature' + str(feature)
-                        column = col1.selectbox(label,options= self.widgets_analysis['importance_features'])
-                        columns_order.append(column)
+        for bloco, topicos in self.configs.parametros["input"]["config"]["topicos"].items():
+            st.sidebar.title(titulos_blocos[bloco])
+            for topico, titulo in topicos.items():
+                with st.sidebar.expander(titulo, expanded=False):
+                    for nome, opcoes in self.configs.parametros["input"]["widgets"][bloco][topico].items():
+                        parametros = [nome,
+                                    opcoes["titulo"], 
+                                    opcoes["descricao"], 
+                                    opcoes["tipo"], 
+                                    opcoes["valor"] if "valor" in opcoes else None,
+                                    opcoes["opcao"] if "opcao" in opcoes else None,
+                                    opcoes["obrigatorio"] if "obrigatorio" in opcoes else False,
+                                    opcoes["controle"] if "controle" in opcoes else None]
                         
-                        behavior = col2.selectbox('Comportamento Crescente',options= [True, False], key = label)
-                        columns_behavior.append(behavior)
-                        feature += 1
-                    self.inputs_analysis['columns_order'] = columns_order
-                    self.inputs_analysis['columns_behavior'] = columns_behavior
-                    if (self.widgets_analysis['control_custom_features']):
-                        self.inputs_analysis['classes_name'] = self.container_inputs_categorys()
-                    else:
-                        self.inputs_analysis['classes_name'] = None
-                    submitted = st.form_submit_button("Submit")
-                    
-                if(submitted ):
-                    st.text(f"Executando...")
-                    st.session_state['outputs_analysis'] = clusters_analysis(st.session_state['outputs']['clustering_raw'],st.session_state['inputs']['colunas_caracteristicas'],**self.inputs_analysis)
-                    self.container_output('outputs_analysis')
-        
-        elif(self.widgets_analysis['control_custom_features']):
-            print("só classe")
-            st.markdown(f"#### Model Hierarchy \n")
-            with st.expander("See all"):
-                with st.form("my_form"):
-                    self.inputs_analysis['classes_name'] = self.container_inputs_categorys()
-                    submitted = st.form_submit_button("Submit")
-                    
-                if(submitted ):
-                    st.text(f"Executando...")
-                    st.session_state['outputs_analysis'] = classes(st.session_state['outputs']['clustering_raw'],st.session_state['inputs']['colunas_caracteristicas'],**self.inputs_analysis)
-                    self.container_output('outputs_analysis')
-                        
-            
-    def container_inputs_categorys(self):   
-        classes_name = []
-        st.markdown(f"#### Custom Classes \n")
-        clusters = np.sort(st.session_state['outputs']['clustering_raw']['clusters'].unique())
-        for cluster in clusters:
-            label =  'Cluster ' + str(cluster)
-            classe = st.text_input(label, key = label)
-            classes_name.append(classe)
-        return classes_name  
-
-        
-    def exec_button(self, exc_function):
-        """
-        Botão de execução da função main que preenche
-        o atributo self.outputs
-
-        Parameters
-        ----------
-        exc_function: function
-            Função que receberá parametros do self.inputs
-        """
+                        if ('posprocesso' in opcoes):
+                            self.config_posprocessing[nome] = self.__convert_input(*parametros)
+                        else: 
+                            self.inputs_model[nome] = self.__convert_input(*parametros)
         with st.sidebar:
-            exc_botao = st.button("Executar", help="Vai dar bom, confia")
-            if exc_botao:
-                st.text(f"Executando...")
-                st.session_state['inputs'] = self.inputs
-                st.session_state['outputs'] = exc_function(**self.inputs)
+            # Botão execução Modelo
+            botao_model = st.button("Executar", help="Vai dar bom, confia")
+            if botao_model:
+                if(self.config_posprocessing): st.session_state['config_posprocessing'] = self.config_posprocessing
                 
-    def __convert_outputs(self, nome: str, type: str, text: str, value):
+                st.session_state['inputs_model'] = self.inputs_model
+             
+                
+                st.session_state['outputs_model'] = model.run_model(st.session_state.df_dataset["df"],**st.session_state.inputs_model)
+    
+                    
+
+    def __convert_outputs(self,  nome: str, type: str, text: str, value):
         """
         Método interno de conversão das informações de
         configurações para a interface do streamlit
@@ -247,9 +200,7 @@ class BASEAPP:
             Valor que será aplicado na função de display
 
         """
-        
-        st.markdown(f"#### {text}")
-        
+        st.markdown(f"##### {text}")
         if type == "DataFrame":
             st.dataframe(value)
             self.__download_output(nome,value)
@@ -272,12 +223,21 @@ class BASEAPP:
         e os apresenta na interface com base no YAML de
         configs > parametros > output
         """
-
         for nome, valor in self.configs.parametros[state].items():
             self.__convert_outputs(
                 nome,valor["tipo"], valor["descricao"], st.session_state[state][nome]
             )
-    
+
+    def container_posprocessing(self, func, model):
+          
+        with st.form("my_form"):
+            self.inputs_posprocessing = func.container_posprocessing(st.session_state['inputs_model'],st.session_state['outputs_model'],st.session_state['config_posprocessing'])
+            
+            botao_posprocessing = st.form_submit_button("Executar")
+                
+            if(botao_posprocessing):
+                st.session_state['outputs_posprocessing'] = model.posprocessing(**self.inputs_posprocessing)
+                
     # @st.cache
     def __convert_df(self, df):
         """
@@ -286,10 +246,9 @@ class BASEAPP:
         # IMPORTANT: Cache the conversion to prevent computation on every rerun
         # se for usar o cache, tem que hashear corretamente, comentei por enquanto
         return df.to_csv(encoding="utf-8")
-    
-                    
+
     def __download_output(
-        self,nome, df, file_name="output_csv.csv", label="Download CSV"
+        self, nome, df, file_name="output_csv.csv", label="Download CSV"
     ):
         csv = self.__convert_df(df)
 
@@ -314,7 +273,7 @@ class BASEAPP:
         )
 
 
-def main(exc_function, config_path: str):
+def main(config_path: str, model_functions, config_posprocessing ):
     """
     Função compilada da interface Streamlit
     com base
@@ -329,32 +288,31 @@ def main(exc_function, config_path: str):
 
     app = BASEAPP(path=config_path)
     
-    
-    
     app.header()
     
+    app.container_dataset()
     
+    if 'df_dataset' in st.session_state: 
+        st.markdown("#### Data Preview") 
+        with st.expander("See explanation"): 
+            app.show_dataset()
+        
+        app.container_inputs(model_functions)
     
-    app.container_inputs()
-    if 'base' in st.session_state:
-        app.exec_button(exc_function=exc_function)
-        
-    # Validando se existe atributo output
-    if 'outputs' in st.session_state:
-        
-        st.markdown("#### Results")
+    if 'outputs_model' in st.session_state:
+        st.markdown("#### Model Results")
         with st.expander("See explanation"):
-            app.container_output('outputs')
-        
-
-        app.container_inputs_analysis()
-        
-           
-        
-        app.footer()  
-    
-        
-    
-#if value == "int":return self.form.number_input(label, value=1 if preset is None else preset, key='number', disabled= True if self.inputs is None else not self.inputs[control] )
-
-#on_change = self.change_disable, args=(name,control)
+            app.container_output('outputs_model')
+            
+    if 'config_posprocessing' in st.session_state: 
+        if(config_posprocessing.check_posprocessing(st.session_state['config_posprocessing'])): 
+            st.markdown("#### Analysis PosProcessing")
+            with st.expander("See explanation"):
+                app.container_posprocessing(config_posprocessing, model_functions)
+                
+                
+                if 'outputs_posprocessing' in st.session_state:
+                    app.container_output('outputs_posprocessing')
+                    del st.session_state['outputs_posprocessing']
+                    
+    app.footer()

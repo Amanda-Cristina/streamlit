@@ -3,7 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image
 from gui import main as gui
-from main import main as segmentation_app
+
+from gui_segmentation import SEGMENTATION 
+from main import MODEL 
 
 
 def dpills_name3():
@@ -121,7 +123,8 @@ with st.sidebar:
     
     paginas = st.selectbox("Qual pill você deseja?", options=("Escolha uma pill", "rfv", "classificacao", "forecasting", "segmentation"))
 if paginas == "segmentation":
-    gui(exc_function=segmentation_app, config_path="configs.yaml")
+    gui(config_path="configs.yaml", model_functions = MODEL(), config_posprocessing = SEGMENTATION())
+
 
 if paginas == "Escolha uma pill":
     banner.write(dpills_name3(), unsafe_allow_html=True)
